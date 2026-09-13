@@ -190,6 +190,7 @@ export function AgentSessionView_01({
     chat: supportsChatInput,
     camera: supportsVideoInput,
     screenShare: supportsScreenShare,
+    noiseFilter: true,
   };
 
   useEffect(() => {

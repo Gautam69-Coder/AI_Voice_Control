@@ -18,8 +18,14 @@ const LIVEKIT_URL = process.env.LIVEKIT_URL;
 export const revalidate = 0;
 
 export async function POST(req: Request) {
-  // make an exception for the vercel preview environment
-  if (process.env.NODE_ENV !== 'development' && process.env.IS_VERCEL_PREVIEW !== 'true') {
+  // Allow local desktop environment, development, and vercel preview
+  const isLocalOrDesktop =
+    process.env.NODE_ENV === 'development' ||
+    process.env.IS_VERCEL_PREVIEW === 'true' ||
+    process.env.ELECTRON_RUN === 'true' ||
+    !process.env.VERCEL;
+
+  if (!isLocalOrDesktop) {
     throw new Error(
       'THIS API ROUTE IS INSECURE. DO NOT USE THIS ROUTE IN PRODUCTION WITHOUT AN AUTHENTICATION LAYER.'
     );
@@ -36,11 +42,33 @@ export async function POST(req: Request) {
       throw new Error('LIVEKIT_API_SECRET is not defined');
     }
 
-    // Parse room config from request body.
+    // Parse room config and participant metadata from request body.
     const body = await req.json();
     const roomConfig = body?.room_config
       ? RoomConfiguration.fromJson(body.room_config, { ignoreUnknownFields: true })
       : new RoomConfiguration();
+
+    // Extract language preference
+    const rawMetadata = body?.participant_metadata ?? body?.participantMetadata ?? body?.metadata;
+    let language = 'en';
+    if (body?.language) {
+      language = body.language;
+    } else if (rawMetadata) {
+      try {
+        const parsed = typeof rawMetadata === 'string' ? JSON.parse(rawMetadata) : rawMetadata;
+        if (parsed?.language) language = parsed.language;
+      } catch {
+        // ignore
+      }
+    }
+
+    const participantAttributes: Record<string, string> = {
+      ...(body?.participant_attributes ?? body?.participantAttributes ?? {}),
+      language,
+    };
+
+    const participantMetadata =
+      typeof rawMetadata === 'string' ? rawMetadata : JSON.stringify({ language });
 
     // Generate participant token
     const participantName = 'user';
@@ -48,7 +76,12 @@ export async function POST(req: Request) {
     const roomName = `voice_assistant_room_${Math.floor(Math.random() * 10_000)}`;
 
     const participantToken = await createParticipantToken(
-      { identity: participantIdentity, name: participantName },
+      {
+        identity: participantIdentity,
+        name: participantName,
+        metadata: participantMetadata,
+        attributes: participantAttributes,
+      },
       roomName,
       roomConfig
     );

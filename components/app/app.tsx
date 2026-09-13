@@ -1,11 +1,13 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { TokenSource } from 'livekit-client';
 import { useSession } from '@livekit/components-react';
 import { WarningIcon } from '@phosphor-icons/react/dist/ssr';
 import { AgentSessionProvider } from '@/components/agents-ui/agent-session-provider';
 import { StartAudioButton } from '@/components/agents-ui/start-audio-button';
+import { DesktopTitlebar } from '@/components/app/desktop-titlebar';
+import { LanguageProvider, useLanguage } from '@/components/app/language-context';
 import { ViewController } from '@/components/app/view-controller';
 import { Toaster } from '@/components/ui/sonner';
 import { useAgentErrors } from '@/hooks/useAgentErrors';
@@ -24,18 +26,42 @@ interface AppProps {
   agentName?: string;
 }
 
-export function App({ agentName }: AppProps) {
+function AppContent({ agentName }: AppProps) {
+  const { t, language } = useLanguage();
   const tokenSource = useMemo(() => TokenSource.endpoint('/api/token'), []);
 
-  const session = useSession(tokenSource, agentName ? { agentName } : undefined);
+  const sessionOptions = useMemo(
+    () => ({
+      agentName,
+      participantMetadata: JSON.stringify({ language }),
+      participantAttributes: { language },
+      agentMetadata: JSON.stringify({ language }),
+    }),
+    [agentName, language]
+  );
+
+  const session = useSession(tokenSource, sessionOptions);
+
+  // Apply hardware DSP audio capture defaults to the session room
+  useEffect(() => {
+    if (session.room?.options) {
+      session.room.options.audioCaptureDefaults = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        voiceIsolation: true,
+      };
+    }
+  }, [session.room]);
 
   return (
     <AgentSessionProvider session={session}>
+      <DesktopTitlebar />
       <AppSetup />
-      <main className="grid h-svh grid-cols-1 place-content-center">
+      <main className="relative flex min-h-svh w-full flex-col justify-center">
         <ViewController />
       </main>
-      <StartAudioButton label="Start Audio" />
+      <StartAudioButton label={t.startAudio} />
       <Toaster
         icons={{
           warning: <WarningIcon weight="bold" />,
@@ -51,5 +77,13 @@ export function App({ agentName }: AppProps) {
         }
       />
     </AgentSessionProvider>
+  );
+}
+
+export function App({ agentName }: AppProps) {
+  return (
+    <LanguageProvider>
+      <AppContent agentName={agentName} />
+    </LanguageProvider>
   );
 }

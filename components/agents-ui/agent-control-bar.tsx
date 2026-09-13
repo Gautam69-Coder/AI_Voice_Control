@@ -2,15 +2,17 @@
 
 import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Track } from 'livekit-client';
-import { Loader, MessageSquareTextIcon, SendHorizontal } from 'lucide-react';
+import { Loader, MessageSquareTextIcon, SendHorizontal, Sparkles } from 'lucide-react';
 import { type MotionProps, motion } from 'motion/react';
 import { useChat } from '@livekit/components-react';
+import { useKrispNoiseFilter } from '@livekit/components-react/krisp';
 import { AgentDisconnectButton } from '@/components/agents-ui/agent-disconnect-button';
 import { AgentTrackControl } from '@/components/agents-ui/agent-track-control';
 import {
   AgentTrackToggle,
   agentTrackToggleVariants,
 } from '@/components/agents-ui/agent-track-toggle';
+import { useLanguage } from '@/components/app/language-context';
 import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
 import {
@@ -166,6 +168,12 @@ export interface AgentControlBarControls {
    * @defaultValue true (if data publish permission is granted)
    */
   chat?: boolean;
+  /**
+   * Whether to show the AI noise filter toggle control.
+   *
+   * @defaultValue true (if microphone publish permission is granted)
+   */
+  noiseFilter?: boolean;
 }
 
 export interface AgentControlBarProps extends UseInputControlsProps {
@@ -177,7 +185,7 @@ export interface AgentControlBarProps extends UseInputControlsProps {
   variant?: 'default' | 'outline' | 'livekit';
   /**
    * This takes an object with the following keys: `leave`, `microphone`, `screenShare`, `camera`,
-   * `chat`. Each key maps to a boolean value that determines whether the control is displayed.
+   * `chat`, `noiseFilter`. Each key maps to a boolean value that determines whether the control is displayed.
    *
    * @default
    * {
@@ -186,6 +194,7 @@ export interface AgentControlBarProps extends UseInputControlsProps {
    *   screenShare: true,
    *   camera: true,
    *   chat: true,
+   *   noiseFilter: true,
    * }
    */
   controls?: AgentControlBarControls;
@@ -251,6 +260,8 @@ export function AgentControlBar({
   className,
   ...props
 }: AgentControlBarProps & ComponentProps<'div'>) {
+  const { t } = useLanguage();
+  const krisp = useKrispNoiseFilter();
   const { send } = useChat();
   const publishPermissions = usePublishPermissions();
   const [isChatOpenUncontrolled, setIsChatOpenUncontrolled] = useState(isChatOpen);
@@ -265,6 +276,19 @@ export function AgentControlBar({
     handleCameraDeviceSelectError,
   } = useInputControls({ onDeviceError, saveUserChoices });
 
+  const hasAttemptedInitRef = useRef(false);
+
+  // Safely attempt to enable Krisp once the microphone track is actually published & ready
+  useEffect(() => {
+    const track = microphoneTrack?.publication?.track;
+    if (track && !hasAttemptedInitRef.current) {
+      hasAttemptedInitRef.current = true;
+      krisp.setNoiseFilterEnabled(true).catch((err) => {
+        console.warn('Could not auto-enable Krisp noise filter on start:', err);
+      });
+    }
+  }, [microphoneTrack, krisp]);
+
   const handleSendMessage = async (message: string) => {
     await send(message);
   };
@@ -272,6 +296,7 @@ export function AgentControlBar({
   const visibleControls = {
     leave: controls?.leave ?? true,
     microphone: controls?.microphone ?? publishPermissions.microphone,
+    noiseFilter: controls?.noiseFilter ?? publishPermissions.microphone,
     screenShare: controls?.screenShare ?? publishPermissions.screenShare,
     camera: controls?.camera ?? publishPermissions.camera,
     chat: controls?.chat ?? publishPermissions.data,
@@ -329,6 +354,54 @@ export function AgentControlBar({
                 ]
               )}
             />
+          )}
+
+          {/* Toggle AI Noise Cancellation (Krisp) */}
+          {visibleControls.noiseFilter && (
+            <Toggle
+              variant={variant === 'outline' ? 'outline' : 'default'}
+              pressed={krisp.isNoiseFilterEnabled}
+              disabled={krisp.isNoiseFilterPending || !microphoneToggle.enabled}
+              aria-label={
+                krisp.isNoiseFilterPending
+                  ? t.noiseFilterPending
+                  : krisp.isNoiseFilterEnabled
+                    ? t.noiseFilterActive
+                    : t.noiseFilterInactive
+              }
+              title={
+                krisp.isNoiseFilterPending
+                  ? t.noiseFilterPending
+                  : krisp.isNoiseFilterEnabled
+                    ? t.noiseFilterActive
+                    : t.noiseFilterInactive
+              }
+              onPressedChange={(state) => {
+                krisp.setNoiseFilterEnabled(state).catch((err) => {
+                  console.warn('Failed to toggle Krisp noise filter:', err);
+                });
+              }}
+              className={agentTrackToggleVariants({
+                variant: variant === 'outline' ? 'outline' : 'default',
+                className: cn(
+                  variant === 'livekit' && [LK_TOGGLE_VARIANT_2, 'rounded-full'],
+                  krisp.isNoiseFilterEnabled &&
+                    'border-emerald-500/30 bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/25 dark:border-emerald-500/40 dark:bg-emerald-500/20 dark:text-emerald-400'
+                ),
+              })}
+            >
+              {krisp.isNoiseFilterPending ? (
+                <Loader className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles
+                  className={cn(
+                    'h-4 w-4 transition-transform duration-200',
+                    krisp.isNoiseFilterEnabled &&
+                      'scale-110 fill-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                  )}
+                />
+              )}
+            </Toggle>
           )}
 
           {/* Toggle Camera */}

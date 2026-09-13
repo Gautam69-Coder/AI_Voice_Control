@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useSessionContext } from '@livekit/components-react';
 import { AgentSessionView_01 } from '@/components/agents-ui/blocks/agent-session-view-01';
 import { WelcomeView } from '@/components/app/welcome-view';
+import { useLanguage } from '@/components/app/language-context';
 
 const MotionWelcomeView = motion.create(WelcomeView);
 const MotionSessionView = motion.create(AgentSessionView_01);
@@ -30,6 +31,7 @@ const VIEW_MOTION_PROPS = {
 export function ViewController() {
   const { isConnected, start } = useSessionContext();
   const { resolvedTheme } = useTheme();
+  const { t } = useLanguage();
 
   return (
     <AnimatePresence mode="wait">
@@ -38,7 +40,7 @@ export function ViewController() {
         <MotionWelcomeView
           key="welcome"
           {...VIEW_MOTION_PROPS}
-          startButtonText="Start call"
+          startButtonText={t.startCall}
           onStartCall={start}
         />
       )}

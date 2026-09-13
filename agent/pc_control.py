@@ -198,14 +198,21 @@ async def open_website(url_or_name: str) -> str:
 
 @llm.function_tool
 async def search_web(query: str, platform: str = "google") -> str:
-    """Search Google or YouTube for a query.
+    """Search Google, YouTube, or Spotify for a query or song.
     
     Args:
-        query: What to search for (e.g. 'latest AI news', 'lofi beats', 'weather in Mumbai')
-        platform: Where to search ('google' or 'youtube')
+        query: What to search for (e.g. 'latest AI news', 'lofi beats', 'Duba song', 'weather in Mumbai')
+        platform: Where to search ('google', 'youtube', or 'spotify')
     """
     clean_query = query.strip()
-    if platform.lower() == "youtube":
+    plat = platform.lower()
+    if "spotify" in plat:
+        url = f"https://open.spotify.com/search/{clean_query.replace(' ', '%20')}"
+        log_action("🎵", f"SEARCH SPOTIFY: '{clean_query}'", f"URL: {url}", "SUCCESS")
+        webbrowser.open(url)
+        launch_gui(url)
+        return f"Searching Spotify for '{clean_query}'."
+    elif "youtube" in plat:
         url = f"https://www.youtube.com/results?search_query={clean_query.replace(' ', '+')}"
         log_action("🔍", f"SEARCH YOUTUBE: '{clean_query}'", f"URL: {url}", "SUCCESS")
         webbrowser.open(url)
@@ -382,11 +389,11 @@ async def run_terminal_command(command: str, description: str = "") -> str:
         stderr = res.stderr.strip()
         
         if res.returncode == 0:
-            output_snippet = stdout[:400] if stdout else "Command completed successfully with no output."
+            output_snippet = stdout[:180] if stdout else "Command completed successfully with no output."
             log_action("💻", f"COMMAND FINISHED: {command}", f"Output:\n{output_snippet}", "SUCCESS")
             return f"Command executed successfully: {output_snippet}"
         else:
-            error_snippet = stderr[:300] if stderr else f"Exit code {res.returncode}"
+            error_snippet = stderr[:180] if stderr else f"Exit code {res.returncode}"
             log_action("⚠️", f"COMMAND FAILED: {command}", f"Error:\n{error_snippet}", "FAILED")
             return f"Command completed with error: {error_snippet}"
     except subprocess.TimeoutExpired:

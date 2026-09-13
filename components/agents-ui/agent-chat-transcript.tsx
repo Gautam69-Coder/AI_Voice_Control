@@ -15,6 +15,20 @@ import {
   MessageScrollerProvider,
   MessageScrollerViewport,
 } from '@/components/ui/message-scroller';
+import { cn } from '@/lib/shadcn/utils';
+
+const streamdownComponents = {
+  code: ({ children, className, ...props }: React.ComponentProps<'code'>) => (
+    <code className={cn('rounded bg-muted/80 px-1.5 py-0.5 font-mono text-xs', className)} {...props}>
+      {children}
+    </code>
+  ),
+  pre: ({ children, className, ...props }: React.ComponentProps<'pre'>) => (
+    <pre className={cn('overflow-x-auto rounded-lg bg-muted/80 p-3 font-mono text-xs my-2', className)} {...props}>
+      {children}
+    </pre>
+  ),
+};
 
 /**
  * Props for the AgentChatTranscript component.
@@ -133,7 +147,7 @@ export function AgentChatTranscript({
                         variant={isUser ? 'secondary' : 'ghost'}
                       >
                         <BubbleContent>
-                          <Streamdown>{message}</Streamdown>
+                          <Streamdown components={streamdownComponents}>{message}</Streamdown>
                         </BubbleContent>
                       </Bubble>
                     </MessageContent>

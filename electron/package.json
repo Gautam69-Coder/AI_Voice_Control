@@ -1,0 +1,8 @@
+{
+  "name": "ai-voice-assistant",
+  "productName": "AI Voice Assistant",
+  "version": "1.0.0",
+  "description": "AI Voice Assistant Desktop Application",
+  "author": "Antigravity",
+  "main": "main.js"
+}
