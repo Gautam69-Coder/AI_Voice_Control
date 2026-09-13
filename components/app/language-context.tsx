@@ -29,6 +29,7 @@ export const translations: Record<Language, Translations> = {
     startAudio: 'Start Audio',
     voiceCommandsTitle: 'Try saying:',
     commands: [
+      'Open setup',
       'Create a folder on my desktop called Projects',
       'Check free space on C drive',
       'Show my IP address',
@@ -54,6 +55,7 @@ export const translations: Record<Language, Translations> = {
     startAudio: 'ऑडियो चालू करें',
     voiceCommandsTitle: 'बोल कर देखें:',
     commands: [
+      'सेटअप खोलो',
       'डेस्कटॉप पर Projects नाम का फोल्डर बनाएं',
       'C ड्राइव में खाली स्पेस चेक करें',
       'मेरा IP एड्रेस दिखाएं',

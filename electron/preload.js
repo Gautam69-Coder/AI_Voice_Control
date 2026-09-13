@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onWindowStateChange: (callback) => {
     ipcRenderer.on('window-state-change', (_event, state) => callback(state));
   },
+  getStartupInfo: () => ipcRenderer.invoke('get-startup-info'),
 });

@@ -217,12 +217,13 @@
     </div>
 
     <h1>Connecting to Voice Agent</h1>
-    <p class="status" id="statusText"><span class="dot"></span> Waiting for local backend server...</p>
+    <p class="status" id="statusText"><span class="dot"></span> Initializing assistant core...</p>
 
     <div class="instructions">
       <strong>Starting Up:</strong><br>
-      • Ensure the backend services are running via <code>npm run dev</code> or <code>Start AI Voice Assistant.bat</code>.<br>
-      • The desktop client will automatically connect once the server is ready.
+      • Self-hosting Next.js web interface on port 6000.<br>
+      • Starting Python Voice Agent and laptop control engine.<br>
+      • Application will connect automatically in a few seconds.
     </div>
 
     <button class="btn" id="retryBtn">Retry Connection Now</button>
@@ -241,19 +242,42 @@
       if (window.electronAPI) window.electronAPI.close();
     });
 
+    let targetUrl = 'http://localhost:6000';
+    let attempts = 0;
+
+    async function init() {
+      if (window.electronAPI && window.electronAPI.getStartupInfo) {
+        try {
+          const info = await window.electronAPI.getStartupInfo();
+          if (info && info.appUrl) {
+            targetUrl = info.appUrl;
+          }
+        } catch (e) {}
+      }
+      checkServer();
+    }
+
     async function checkServer() {
+      attempts++;
       try {
-        statusText.innerHTML = '<span class="dot"></span> Probing http://localhost:3000...';
-        const res = await fetch('http://localhost:3000', { mode: 'no-cors' });
+        statusText.innerHTML = `<span class="dot"></span> Probing ${targetUrl}...`;
+        const res = await fetch(targetUrl, { mode: 'no-cors' });
         statusText.textContent = 'Server detected! Loading application...';
-        window.location.href = 'http://localhost:3000';
+        window.location.href = targetUrl;
       } catch (err) {
-        statusText.innerHTML = '<span class="dot"></span> Waiting for local server (http://localhost:3000)...';
+        if (attempts < 4) {
+          statusText.innerHTML = '<span class="dot"></span> Bootstrapping local Next.js server (Port 6000)...';
+        } else if (attempts < 8) {
+          statusText.innerHTML = '<span class="dot"></span> Initializing Python Voice Agent & tools...';
+        } else {
+          statusText.innerHTML = `<span class="dot"></span> Waiting for local server (${targetUrl})...`;
+        }
       }
     }
 
     retryBtn.addEventListener('click', checkServer);
-    setInterval(checkServer, 2000);
+    setInterval(checkServer, 1800);
+    init();
   </script>
 </body>
 </html>

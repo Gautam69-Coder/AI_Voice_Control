@@ -71,6 +71,8 @@ APP_COMMANDS = {
     "vscode": "code.cmd",
     "vs code": "code.cmd",
     "visual studio code": "code.cmd",
+    "brave": r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+    "brave browser": r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
     "word": "winword.exe",
     "excel": "excel.exe",
     "powerpoint": "powerpnt.exe",
@@ -403,12 +405,57 @@ async def run_terminal_command(command: str, description: str = "") -> str:
         log_action("❌", f"COMMAND ERROR: {command}", str(e), "EXCEPTION")
         return f"Failed to run command: {e}"
 
+@llm.function_tool
+async def open_setup() -> str:
+    """Launch the developer workspace setup: opens YouTube, VS Code, and Brave Browser.
+    Call this tool whenever the user asks to 'open setup', 'start setup', 'developer setup', or 'सेटअप खोलो'.
+    """
+    results = []
+
+    # 1. Open Brave Browser
+    brave_paths = [
+        r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
+        r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
+        os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe"),
+    ]
+    brave_target = next((p for p in brave_paths if os.path.exists(p)), "brave.exe")
+    brave_ok = launch_gui(brave_target, fallback_cmd='start "" "brave"')
+    if brave_ok:
+        results.append("Brave Browser")
+
+    # 2. Open YouTube in browser
+    try:
+        if os.path.exists(brave_target):
+            subprocess.Popen([brave_target, "https://www.youtube.com"])
+        else:
+            webbrowser.open("https://www.youtube.com")
+        results.append("YouTube")
+    except Exception:
+        webbrowser.open("https://www.youtube.com")
+        results.append("YouTube")
+
+    # 3. Open VS Code
+    vscode_paths = [
+        r"C:\Users\vishn\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd",
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs\Microsoft VS Code\bin\code.cmd"),
+        r"C:\Program Files\Microsoft VS Code\bin\code.cmd",
+    ]
+    vscode_target = next((p for p in vscode_paths if os.path.exists(p)), "code.cmd")
+    vscode_ok = launch_gui(vscode_target, fallback_cmd='start "" "code"')
+    if vscode_ok:
+        results.append("VS Code")
+
+    opened_str = ", ".join(results) if results else "YouTube, VS Code, and Brave Browser"
+    log_action("⚡", "OPEN SETUP ROUTINE", f"Launched: {opened_str}", "SUCCESS: Setup ready")
+    return f"Opened your developer setup: {opened_str} are now open on your screen."
+
 # All tools exported
 LAPTOP_CONTROL_TOOLS = [
     open_application,
     close_application,
     open_website,
     search_web,
+    open_setup,
     write_note,
     volume_control,
     media_control,
