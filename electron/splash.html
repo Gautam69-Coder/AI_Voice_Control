@@ -221,7 +221,7 @@
 
     <div class="instructions">
       <strong>Starting Up:</strong><br>
-      • Self-hosting Next.js web interface on port 6000.<br>
+      • Self-hosting Next.js web interface on port 6001.<br>
       • Starting Python Voice Agent and laptop control engine.<br>
       • Application will connect automatically in a few seconds.
     </div>
@@ -242,7 +242,7 @@
       if (window.electronAPI) window.electronAPI.close();
     });
 
-    let targetUrl = 'http://localhost:6000';
+    let targetUrl = 'http://localhost:6001';
     let attempts = 0;
 
     async function init() {
@@ -266,7 +266,7 @@
         window.location.href = targetUrl;
       } catch (err) {
         if (attempts < 4) {
-          statusText.innerHTML = '<span class="dot"></span> Bootstrapping local Next.js server (Port 6000)...';
+          statusText.innerHTML = '<span class="dot"></span> Bootstrapping local Next.js server (Port 6001)...';
         } else if (attempts < 8) {
           statusText.innerHTML = '<span class="dot"></span> Initializing Python Voice Agent & tools...';
         } else {

@@ -81,8 +81,11 @@ class EdgeChunkedStream(tts.ChunkedStream):
                 output_emitter.push(chunk["data"])
         output_emitter.flush()
 
-SYSTEM_PROMPT = """You are an intelligent, friendly AI voice assistant built with LiveKit Agents that has voice control capabilities over the user's Windows laptop.
+def build_prompts(assistant_name: str = "Maya"):
+    name = assistant_name.strip() if assistant_name and assistant_name.strip() else "Maya"
+    system_prompt = f"""You are {name}, an intelligent, friendly AI voice assistant built with LiveKit Agents that has voice control capabilities over the user's Windows laptop.
 You communicate naturally through voice.
+Your name is {name}. When the user asks for your name or who you are, explicitly introduce yourself as {name}, their AI voice assistant.
 
 DYNAMIC COMMAND CREATION & EXECUTION (VERY IMPORTANT):
 You have the ability to automatically create and execute Windows PowerShell commands to fulfill any task requested by the user.
@@ -116,16 +119,17 @@ VOICE RESPONSE RULES:
 - LANGUAGE SUPPORT: If the user speaks in Hindi, respond in Hindi. If the user speaks in English, respond in English.
 """
 
-HINDI_SYSTEM_PROMPT = """You are an intelligent, friendly AI voice assistant built with LiveKit Agents that has voice control capabilities over the user's Windows laptop.
+    hindi_system_prompt = f"""You are {name}, an intelligent, friendly AI voice assistant built with LiveKit Agents that has voice control capabilities over the user's Windows laptop.
 You communicate naturally through voice.
 
 CRITICAL LANGUAGE INSTRUCTION:
 The user has chosen HINDI language mode.
 - You MUST always speak and reply in natural, friendly HINDI (Devanagari script or conversational Hindi).
+- आपका नाम {name} है। जब भी यूज़र आपका नाम पूछे या पूछे कि आप कौन हैं, तो स्पष्ट रूप से बताएं कि आपका नाम {name} है।
 - If the user refers to technical terms or apps (like Notepad, Chrome, YouTube, Calculator, Volume, Screenshot, Folder, File, etc.), use them naturally within your Hindi speech.
 - Keep your spoken answers concise, conversational, and direct (1 to 2 spoken sentences in Hindi).
 Examples:
-- "नमस्ते! मैं आपका AI वॉयस असिस्टेंट हूँ। मैं आपके लैपटॉप पर क्या करूँ?"
+- "नमस्ते! मैं {name} हूँ, आपकी AI वॉयस असिस्टेंट। मैं आपके लैपटॉप पर क्या करूँ?"
 - "मैंने आपके लिए सेटअप खोल दिया है: YouTube, VS Code और Brave Browser चालू हो रहे हैं।"
 - "मैंने आपके लिए Notepad खोल दिया है।"
 - "मैंने आवाज़ बढ़ा दी है।"
@@ -164,6 +168,7 @@ VOICE RESPONSE RULES:
 - Keep your spoken responses concise, conversational, and direct (1 to 2 sentences) in natural Hindi.
 - Avoid long lists, markdown formatting, or bullet points in spoken responses—speak plain conversational Hindi.
 """
+    return system_prompt, hindi_system_prompt
 
 async def entrypoint(ctx: JobContext):
     logger.info(f"Connecting to room: {ctx.room.name}")
@@ -231,8 +236,10 @@ async def entrypoint(ctx: JobContext):
         logger.info(f"Using Microsoft Edge Neural TTS ({chosen_voice})")
         agent_tts = EdgeTTS(voice=chosen_voice, hindi_voice="hi-IN-SwaraNeural", is_hindi=is_hindi)
 
-    # Select system prompt instructions based on language
-    chosen_instructions = HINDI_SYSTEM_PROMPT if is_hindi else SYSTEM_PROMPT
+    # Select system prompt instructions based on assistant name and language
+    assistant_name = os.getenv("AGENT_NAME", "").strip() or "Maya"
+    en_prompt, hi_prompt = build_prompts(assistant_name)
+    chosen_instructions = hi_prompt if is_hindi else en_prompt
 
     # Create Agent instance with Laptop Control tools
     agent = Agent(
@@ -279,9 +286,12 @@ async def entrypoint(ctx: JobContext):
         logger.warning(f"LiveKit session error: {err}")
 
     # Start the agent session attached to the room
+    configured_name_display = os.getenv("AGENT_NAME", "").strip() or "(Automatic Dispatch)"
     banner = f"""
 =================================================================
   🎙️  LIVEKIT AI VOICE AGENT WORKER IS ACTIVE & READY!
+  🤖 Assistant Identity: {assistant_name}
+  🏷️  Registered Dispatch Name: '{configured_name_display}'
   🌐 Active Language Mode: {lang_display}
   💻 Laptop Voice Control & Dynamic Command Engine Loaded:
      • Dynamic PowerShell Command Generation & Execution (Auto)
@@ -295,18 +305,21 @@ async def entrypoint(ctx: JobContext):
 =================================================================
 """
     print(banner, flush=True)
-    logger.info("Starting voice agent session with laptop control tools...")
+    logger.info(f"Starting voice agent session for '{assistant_name}' with laptop control tools...")
     await session.start(agent, room=ctx.room)
 
     # Send initial greeting once user joins
     await asyncio.sleep(0.5)
     try:
         if is_hindi:
-            await session.say("नमस्ते! मैं आपका AI वॉयस असिस्टेंट हूँ। मैं आपके लैपटॉप पर क्या करूँ?")
+            await session.say(f"नमस्ते! मैं {assistant_name} हूँ, आपका AI वॉयस असिस्टेंट। मैं आपके लैपटॉप पर क्या करूँ?")
         else:
-            await session.say("Hi there! I am your AI voice assistant with full laptop control. What would you like me to do?")
+            await session.say(f"Hi there! I am {assistant_name}, your AI voice assistant with full laptop control. What would you like me to do?")
     except Exception as e:
         logger.warning(f"Initial greeting notice: {e}")
 
 if __name__ == "__main__":
-    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
+    configured_agent_name = os.getenv("AGENT_NAME", "").strip()
+    logger.info(f"Starting LiveKit agent worker (agent_name: '{configured_agent_name or '(automatic dispatch)'}')")
+    cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint, agent_name=configured_agent_name))
+

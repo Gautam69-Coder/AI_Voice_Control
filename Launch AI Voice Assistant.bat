@@ -10,10 +10,10 @@ echo [*] Launching AI Voice Assistant Desktop App (Port 6000)...
 echo [*] Electron will automatically manage local services.
 echo.
 
-if exist "dist_electron\win-unpacked\AI Voice Assistant.exe" (
+if exist "dist_electron\AI Voice Assistant-Portable.exe" (
+    start "" "dist_electron\AI Voice Assistant-Portable.exe"
+) else if exist "dist_electron\win-unpacked\AI Voice Assistant.exe" (
     start "" "dist_electron\win-unpacked\AI Voice Assistant.exe"
-) else if exist "dist_electron\AI Voice Assistant-Portable-1.0.0.exe" (
-    start "" "dist_electron\AI Voice Assistant-Portable-1.0.0.exe"
 ) else (
     start "" npx electron .
 )

@@ -13,23 +13,32 @@ const fs = require('fs');
 const http = require('http');
 const { spawn } = require('child_process');
 
-// CRITICAL: Chromium blocks port 6000 by default (X11) with ERR_UNSAFE_PORT.
-// This command-line switch must be registered before app.whenReady().
-app.commandLine.appendSwitch('explicitly-allowed-ports', '6000');
-
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 let serverProcess = null;
 let agentProcess = null;
 
-const PORT = process.env.PORT || 6000;
+// Next.js explicitly reserves port 6000 for X11 and throws an error if used.
+// Port 6001 is completely free and safe.
+const PORT = process.env.PORT || 6001;
 const APP_URL = process.env.ELECTRON_START_URL || `http://localhost:${PORT}`;
 
 // Project root directory
-const projectRoot = app.isPackaged
-  ? process.resourcesPath
-  : path.resolve(__dirname, '..');
+const projectRoot = 'D:\\PC-Data\\MERN\\.Projects\\AI_Voice_Control';
+
+// Log file for debugging
+const logFile = path.join(projectRoot, 'app-startup.log');
+function log(msg) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`;
+  try {
+    fs.appendFileSync(logFile, line);
+  } catch (e) {}
+  console.log(msg);
+}
+
+log(`Desktop app starting up. Target URL: ${APP_URL}`);
+log(`Project root resolved to: ${projectRoot}`);
 
 // Helper to load .env / .env.local variables
 function loadEnv() {
@@ -62,7 +71,7 @@ function loadEnv() {
           }
         });
       } catch (err) {
-        console.warn('Could not load environment file:', envFile, err);
+        log(`Could not load env file ${envFile}: ${err}`);
       }
     }
   }
@@ -85,27 +94,43 @@ function checkPortOnline(port) {
   });
 }
 
+function findExecutable(names) {
+  for (const name of names) {
+    if (fs.existsSync(name)) return name;
+    try {
+      const out = require('child_process').execSync(`where.exe ${name}`, { encoding: 'utf8' }).trim();
+      const first = out.split(/\r?\n/)[0]?.trim();
+      if (first && fs.existsSync(first)) return first;
+    } catch (e) {}
+  }
+  return names[0];
+}
+
+const nodeExe = findExecutable(['C:\\Program Files\\nodejs\\node.exe', 'node']);
+const pyExe = findExecutable(['C:\\Users\\vishn\\AppData\\Local\\Programs\\Python\\Launcher\\py.exe', 'py', 'python']);
+
 // Start background services (Next.js server and Python Voice Agent)
 function startBackgroundServices() {
   checkPortOnline(PORT).then((isUp) => {
     if (isUp) {
-      console.log(`[Electron] Port ${PORT} is already active. Attaching to existing server.`);
+      log(`Port ${PORT} is already active. Attaching to existing server.`);
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.loadURL(APP_URL).catch(() => {});
       }
       return;
     }
 
-    console.log(`[Electron] Port ${PORT} is not running. Bootstrapping background services...`);
+    log(`Port ${PORT} is not running. Bootstrapping background services from ${projectRoot}...`);
     const envVars = { ...process.env, ...loadEnv(), PORT: String(PORT) };
 
     // 1. Next.js Web Server
     const hasBuiltNext = fs.existsSync(path.join(projectRoot, '.next'));
     const nextArgs = hasBuiltNext ? ['start', '-p', String(PORT)] : ['dev', '-p', String(PORT)];
-    const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+    const nextCli = path.join(projectRoot, 'node_modules', 'next', 'dist', 'bin', 'next');
 
     try {
-      serverProcess = spawn(npxCmd, ['next', ...nextArgs], {
+      log(`Launching Next.js: "${nodeExe}" "${nextCli}" ${nextArgs.join(' ')} in ${projectRoot}`);
+      serverProcess = spawn(nodeExe, [nextCli, ...nextArgs], {
         cwd: projectRoot,
         env: envVars,
         stdio: 'pipe',
@@ -113,25 +138,24 @@ function startBackgroundServices() {
       });
 
       serverProcess.stdout?.on('data', (d) => {
-        const text = d.toString().trim();
-        console.log(`[Next.js Server]: ${text}`);
+        log(`[Next.js Server]: ${d.toString().trim()}`);
       });
       serverProcess.stderr?.on('data', (d) => {
-        console.error(`[Next.js Server Err]: ${d.toString().trim()}`);
+        log(`[Next.js Server Err]: ${d.toString().trim()}`);
       });
       serverProcess.on('exit', (code) => {
-        console.log(`[Next.js Server] exited with code ${code}`);
+        log(`[Next.js Server] exited with code ${code}`);
       });
     } catch (err) {
-      console.error('[Electron] Could not spawn Next.js server:', err);
+      log(`Failed to spawn Next.js server: ${err}`);
     }
 
     // 2. Python Voice Agent
     const agentPath = path.join(projectRoot, 'agent', 'agent.py');
     if (fs.existsSync(agentPath)) {
-      const pyCmd = process.platform === 'win32' ? 'py' : 'python3';
       try {
-        agentProcess = spawn(pyCmd, ['-u', 'agent/agent.py', 'dev'], {
+        log(`Launching Voice Agent: "${pyExe}" -u agent/agent.py dev in ${projectRoot}`);
+        agentProcess = spawn(pyExe, ['-u', 'agent/agent.py', 'dev'], {
           cwd: projectRoot,
           env: envVars,
           stdio: 'pipe',
@@ -139,27 +163,19 @@ function startBackgroundServices() {
         });
 
         agentProcess.stdout?.on('data', (d) => {
-          console.log(`[Voice Agent]: ${d.toString().trim()}`);
+          log(`[Voice Agent]: ${d.toString().trim()}`);
         });
         agentProcess.stderr?.on('data', (d) => {
-          console.error(`[Voice Agent Err]: ${d.toString().trim()}`);
+          log(`[Voice Agent Err]: ${d.toString().trim()}`);
         });
         agentProcess.on('exit', (code) => {
-          console.log(`[Voice Agent] exited with code ${code}`);
+          log(`[Voice Agent] exited with code ${code}`);
         });
-      } catch (e1) {
-        console.warn('[Electron] Failed with py, trying python...', e1);
-        try {
-          agentProcess = spawn('python', ['-u', 'agent/agent.py', 'dev'], {
-            cwd: projectRoot,
-            env: envVars,
-            stdio: 'pipe',
-            windowsHide: true,
-          });
-        } catch (e2) {
-          console.error('[Electron] Could not launch Python agent:', e2);
-        }
+      } catch (err) {
+        log(`Could not launch Python agent: ${err}`);
       }
+    } else {
+      log(`Warning: agent script not found at ${agentPath}`);
     }
   });
 }
@@ -169,15 +185,13 @@ function stopBackgroundServices() {
   const killProc = (proc, label) => {
     if (!proc || !proc.pid) return;
     try {
-      console.log(`[Electron] Terminating background ${label} (PID: ${proc.pid})...`);
+      log(`Terminating background ${label} (PID: ${proc.pid})...`);
       if (process.platform === 'win32') {
         spawn('taskkill', ['/pid', String(proc.pid), '/T', '/F'], { windowsHide: true });
       } else {
         proc.kill('SIGTERM');
       }
-    } catch (e) {
-      // Process may already have stopped
-    }
+    } catch (e) {}
   };
 
   killProc(serverProcess, 'Next.js Server');
@@ -320,10 +334,10 @@ function registerGlobalHotkeys() {
     });
 
     if (shortcutRegistered) {
-      console.log('Registered global summon shortcut: CommandOrControl+Shift+Space');
+      log('Registered global summon shortcut: CommandOrControl+Shift+Space');
     }
   } catch (err) {
-    console.warn('Could not register global summon shortcut:', err);
+    log(`Could not register global summon shortcut: ${err}`);
   }
 }
 

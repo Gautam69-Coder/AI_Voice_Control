@@ -1,5 +1,6 @@
 import { App } from '@/components/app/app';
 
 export default function Page() {
-  return <App agentName={process.env.AGENT_NAME} />;
+  const agentName = process.env.AGENT_NAME?.trim() || undefined;
+  return <App agentName={agentName} />;
 }

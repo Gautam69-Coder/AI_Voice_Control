@@ -43,7 +43,16 @@ export function useAgentErrors() {
                 ))}
               </ul>
             )}
-            {reasons.length === 1 && <p className="w-full">{reasons[0]}</p>}
+            {reasons.length === 1 && (
+              <p className="w-full">
+                {reasons[0]}
+                {reasons[0].includes('did not join') && (
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Ensure the Python agent (`npm run dev`) is active and connected.
+                  </span>
+                )}
+              </p>
+            )}
             <p className="w-full">
               <a
                 target="_blank"

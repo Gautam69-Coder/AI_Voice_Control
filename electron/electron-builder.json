@@ -18,7 +18,7 @@
   "win": {
     "target": [
       {
-        "target": "portable",
+        "target": "nsis",
         "arch": [
           "x64"
         ]
@@ -26,7 +26,13 @@
     ],
     "icon": "icon.ico"
   },
-  "portable": {
-    "artifactName": "${productName}-Portable.${ext}"
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowElevation": false,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "AI Voice Assistant",
+    "artifactName": "${productName}-Setup.${ext}"
   }
 }

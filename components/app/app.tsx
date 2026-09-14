@@ -30,14 +30,19 @@ function AppContent({ agentName }: AppProps) {
   const { t, language } = useLanguage();
   const tokenSource = useMemo(() => TokenSource.endpoint('/api/token'), []);
 
+  const normalizedAgentName = useMemo(() => {
+    return agentName && agentName.trim() ? agentName.trim() : undefined;
+  }, [agentName]);
+
   const sessionOptions = useMemo(
     () => ({
-      agentName,
+      agentName: normalizedAgentName,
       participantMetadata: JSON.stringify({ language }),
       participantAttributes: { language },
       agentMetadata: JSON.stringify({ language }),
+      agentConnectTimeoutMilliseconds: 30_000,
     }),
-    [agentName, language]
+    [normalizedAgentName, language]
   );
 
   const session = useSession(tokenSource, sessionOptions);
